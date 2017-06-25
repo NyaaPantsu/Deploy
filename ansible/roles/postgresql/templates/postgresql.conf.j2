@@ -110,7 +110,7 @@ max_connections = 100			# (change requires restart)
 
 # - Memory -
 
-shared_buffers = 128MB			# min 128kB
+shared_buffers = {{ nyaapantsu_postgresql_shared_buffers_gb }}GB			# min 128kB
 					# (change requires restart)
 #huge_pages = try			# on, off, or try
 					# (change requires restart)
@@ -120,7 +120,7 @@ shared_buffers = 128MB			# min 128kB
 # Caution: it is not advisable to set max_prepared_transactions nonzero unless
 # you actively intend to use prepared transactions.
 #work_mem = 4MB				# min 64kB
-#maintenance_work_mem = 64MB		# min 1MB
+maintenance_work_mem = {{ nyaapantsu_postgresql_maintenance_work_mem_mb }}MB		# min 1MB
 #replacement_sort_tuples = 150000	# limits use of replacement selection sort
 #autovacuum_work_mem = -1		# min 1MB, or -1 to use maintenance_work_mem
 #max_stack_depth = 2MB			# min 100kB
