@@ -66,16 +66,23 @@ mappings:
         type: long
       downloads:
         type: long
-      seeders:
-        type: long
       hidden:
         type: boolean
-      leechers:
-        type: long
-      completed:
-        type: long
       filesize:
         type: long
       language:
         type: text
         analyzer: simple
+  scrape:
+    properties:
+      # TODO Consistent ID's type in TorrentJSON
+      id:
+        type: long
+      seeders:
+        type: long
+      leechers:
+        type: long
+      completed:
+        type: long
+      last_scrape:
+        type: date
