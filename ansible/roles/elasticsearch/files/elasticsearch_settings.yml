@@ -73,11 +73,6 @@ mappings:
       language:
         type: text
         analyzer: simple
-  scrape:
-    properties:
-      # TODO Consistent ID's type in TorrentJSON
-      id:
-        type: long
       seeders:
         type: long
       leechers:

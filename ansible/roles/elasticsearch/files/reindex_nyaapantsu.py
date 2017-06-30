@@ -38,12 +38,17 @@ while fetches:
           '_id': torrent_id
         }
         if action == 'index':
-            select_cur = pgconn.cursor()
-            select_cur.execute("""SELECT torrent_id, torrent_name, description, hidden, category, sub_category, status,
+            select_torrent_cur = pgconn.cursor()
+            select_torrent_cur.execute("""SELECT torrent_id, torrent_name, description, hidden, category, sub_category, status,
                                   torrent_hash, date, uploader, downloads, filesize, language
                            FROM {torrent_tablename}
                            WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, torrent_tablename=torrent_tablename))
-            torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language = select_cur.fetchone()
+            torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language = select_torrent_cur.fetchone()
+            select_scrape_cur = pgconn.cursor()
+            select_scrape_cur.execute("""SELECT torrent_id, seeders, leechers, completed, last_scrape
+                                         FROM {scrape_tablename}
+                                         WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, scrape_tablename=torrent_tablename))
+            scrape_id, seeders, leechers, completed, last_scrape = select_scrape_cur.fetchone()
             doc = {
               'id': torrent_id,
               'name': torrent_name.decode('utf-8'),
@@ -58,48 +63,15 @@ while fetches:
               'downloads': downloads,
               'filesize': filesize,
               'language': language
-            }
-            new_action['_source'] = doc
-            select_cur.close()
-        delete_cur.execute('DELETE FROM reindex_{torrent_tablename} WHERE reindex_torrents_id = {reindex_id}'.format(reindex_id=reindex_id,torrent_tablename=torrent_tablename))
-        actions.append(new_action)
-    pgconn.commit() # Commit the deletes transaction
-    delete_cur.close()
-    helpers.bulk(es, actions, chunk_size=CHUNK_SIZE, request_timeout=120)
-    del(fetches)
-    fetches = cur.fetchmany(CHUNK_SIZE)
-cur.close()
-
-# For scrape
-cur = pgconn.cursor()
-cur.execute('/*NO QUERY CACHE*/ SELECT reindex_torrents_id, torrent_id, action FROM reindex_{scrape_tablename}'.format(torrent_tablename=torrent_tablename))
-fetches = cur.fetchmany(CHUNK_SIZE)
-while fetches:
-    actions = list()
-    delete_cur = pgconn.cursor()
-    for reindex_id, torrent_id, action in fetches:
-        new_action = {
-          '_op_type': action,
-          '_index': pantsu_index,
-          '_type': 'scrape',
-          '_id': torrent_id
-        }
-        if action == 'index':
-            select_cur = pgconn.cursor()
-            select_cur.execute("""SELECT torrent_id, seeders, leechers, completed, last_scrape
-                                  FROM {scrape_tablename}
-                                  WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, torrent_tablename=torrent_tablename))
-            torrent_id, seeders, leechers, completed, last_scrape = select_cur.fetchone()
-            doc = {
-              'id': torrent_id,
               'seeders': seeders,
               'leechers': leechers,
               'completed': completed,
               'last_scrape': last_scrape
             }
             new_action['_source'] = doc
-            select_cur.close()
-        delete_cur.execute('DELETE FROM reindex_{scrape_tablename} WHERE reindex_torrents_id = {reindex_id}'.format(reindex_id=reindex_id,torrent_tablename=torrent_tablename))
+            select_torrent_cur.close()
+            select_scrape_cur.close()
+        delete_cur.execute('DELETE FROM reindex_{torrent_tablename} WHERE reindex_torrents_id = {reindex_id}'.format(reindex_id=reindex_id,torrent_tablename=torrent_tablename))
         actions.append(new_action)
     pgconn.commit() # Commit the deletes transaction
     delete_cur.close()
