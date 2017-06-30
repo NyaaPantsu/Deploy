@@ -62,7 +62,7 @@ while fetches:
               'uploader_id': uploader,
               'downloads': downloads,
               'filesize': filesize,
-              'language': language
+              'language': language,
               'seeders': seeders,
               'leechers': leechers,
               'completed': completed,
