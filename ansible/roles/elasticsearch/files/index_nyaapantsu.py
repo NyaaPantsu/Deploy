@@ -35,7 +35,7 @@ while torrent_fetches:
         scrape_cur.execute("""SELECT torrent_id, seeders, leechers, completed, last_scrape
                        FROM {scrape_tablename}
                        WHERE torrent_id = {torrent_id}""".format(scrape_tablename=scrape_tablename, torrent_id=torrent_id))
-        scrape_id, seeders, leechers, last_scrape = scrape_cur.fetchone()
+        scrape_id, seeders, leechers, completed, last_scrape = scrape_cur.fetchone()
         doc = {
           'id': torrent_id,
           'name': torrent_name.decode('utf-8'),
