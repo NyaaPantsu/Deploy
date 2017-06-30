@@ -24,7 +24,8 @@ pgconn = psycopg2.connect(dbparams)
 cur = pgconn.cursor()
 # We MUST use NO QUERY CACHE because the values are insert on triggers and
 # not through pgppool.
-cur.execute('/*NO QUERY CACHE*/ SELECT reindex_torrents_id, torrent_id, action FROM reindex_{torrent_tablename}'.format(torrent_tablename=torrent_tablename))
+cur.execute('/*NO QUERY CACHE*/ SELECT reindex_torrents_id, torrent_id, action
+                                FROM reindex_{torrent_tablename}'.format(torrent_tablename=torrent_tablename))
 
 fetches = cur.fetchmany(CHUNK_SIZE)
 while fetches:
@@ -38,17 +39,12 @@ while fetches:
           '_id': torrent_id
         }
         if action == 'index':
-            select_torrent_cur = pgconn.cursor()
-            select_torrent_cur.execute("""SELECT torrent_id, torrent_name, description, hidden, category, sub_category, status,
-                                  torrent_hash, date, uploader, downloads, filesize, language
-                           FROM {torrent_tablename}
-                           WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, torrent_tablename=torrent_tablename))
-            torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language = select_torrent_cur.fetchone()
-            select_scrape_cur = pgconn.cursor()
-            select_scrape_cur.execute("""SELECT torrent_id, seeders, leechers, completed, last_scrape
-                                         FROM {scrape_tablename}
-                                         WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, scrape_tablename=torrent_tablename))
-            scrape_id, seeders, leechers, completed, last_scrape = select_scrape_cur.fetchone()
+            select_cur = pgconn.cursor()
+            select_cur.execute("""SELECT torrent_id, torrent_name, description, hidden, category, sub_category, status,
+                                  torrent_hash, date, uploader, downloads, filesize, language, seeders, leechers, completed, last_scrape
+                           FROM {torrent_tablename} t INNER JOIN {scrape_tablename} s ON (t.torrent_id = s.torrent_id)
+                           WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, torrent_tablename=torrent_tablename, scrape_tablename=scrape_tablename))
+            torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language, seeders, leechers, completed, last_scrape = select_cur.fetchone()
             doc = {
               'id': torrent_id,
               'name': torrent_name.decode('utf-8'),
@@ -69,8 +65,7 @@ while fetches:
               'last_scrape': last_scrape
             }
             new_action['_source'] = doc
-            select_torrent_cur.close()
-            select_scrape_cur.close()
+            select_cur.close()
         delete_cur.execute('DELETE FROM reindex_{torrent_tablename} WHERE reindex_torrents_id = {reindex_id}'.format(reindex_id=reindex_id,torrent_tablename=torrent_tablename))
         actions.append(new_action)
     pgconn.commit() # Commit the deletes transaction
