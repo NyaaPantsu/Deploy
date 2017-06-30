@@ -16,20 +16,26 @@ def getEnvOrExit(var):
 dbparams = getEnvOrExit('PANTSU_DBPARAMS')
 pantsu_index = getEnvOrExit('PANTSU_ELASTICSEARCH_INDEX')
 torrent_tablename = getEnvOrExit('PANTSU_TORRENT_TABLENAME')
+scrape_tablename = getEnvOrExit('PANTSU_SCRAPE_TABLENAME')
 
 es = Elasticsearch()
 pgconn = psycopg2.connect(dbparams)
 
-cur = pgconn.cursor()
-cur.execute("""SELECT torrent_id, torrent_name, description, hidden, category, sub_category, status, 
-                      torrent_hash, date, uploader, downloads, filesize, seeders, leechers, completed, language
+torrent_cur = pgconn.cursor()
+torrent_cur.execute("""SELECT torrent_id, torrent_name, description, hidden, category, sub_category, status, 
+                      torrent_hash, date, uploader, downloads, filesize, language
                FROM {torrent_tablename}
                WHERE deleted_at IS NULL""".format(torrent_tablename=torrent_tablename))
 
-fetches = cur.fetchmany(CHUNK_SIZE)
-while fetches:
+torrent_fetches = torrent_cur.fetchmany(CHUNK_SIZE)
+while torrent_fetches:
     actions = list()
-    for torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, seeders, leechers, completed, language in fetches:
+    for torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language in torrent_fetches:
+        scrape_cur = pgconn.cursor()
+        scrape_cur.execute("""SELECT torrent_id, seeders, leechers, completed, last_scrape
+                       FROM {scrape_tablename}
+                       WHERE torrent_id = {torrent_id}""".format(scrape_tablename=scrape_tablename, torrent_id=torrent_id))
+        scrape_id, seeders, leechers, last_scrape = scrape_cur.fetchone()
         doc = {
           'id': torrent_id,
           'name': torrent_name.decode('utf-8'),
@@ -46,6 +52,7 @@ while fetches:
           'seeders': seeders,
           'leechers': leechers,
           'completed': completed,
+          'last_scrape': last_scrape,
           'language': language
         }
         action = {
@@ -55,8 +62,9 @@ while fetches:
             '_source': doc
         }
         actions.append(action)
+        scrape_cur.close()
     helpers.bulk(es, actions, chunk_size=CHUNK_SIZE, request_timeout=120)
-    del(fetches)
-    fetches = cur.fetchmany(CHUNK_SIZE)
+    del(torrent_fetches)
+    torrent_fetches = torrent_cur.fetchmany(CHUNK_SIZE)
 cur.close()
 pgconn.close()
