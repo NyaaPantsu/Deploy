@@ -87,6 +87,11 @@
     src: reindex_nyaapantsu.py
     dest: "{{ elasticsearch_reindex_script }}"
 
+- name: Copy add_all_to_reindex sql script
+  template:
+    src: add_all_to_reindex.sql.j2
+    dest: "{{ nyaapantsu_directory }}/add_all_to_reindex.sql"
+
 - name: Setup reindexing cron job
   template:
     src: reindex_cron.j2
