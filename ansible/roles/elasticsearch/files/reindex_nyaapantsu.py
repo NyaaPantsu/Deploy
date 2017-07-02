@@ -24,8 +24,7 @@ pgconn = psycopg2.connect(dbparams)
 cur = pgconn.cursor()
 # We MUST use NO QUERY CACHE because the values are insert on triggers and
 # not through pgppool.
-cur.execute('/*NO QUERY CACHE*/ SELECT reindex_torrents_id, torrent_id, action
-                                FROM reindex_{torrent_tablename}'.format(torrent_tablename=torrent_tablename))
+cur.execute('/*NO QUERY CACHE*/ SELECT reindex_torrents_id, torrent_id, action FROM reindex_{torrent_tablename}'.format(torrent_tablename=torrent_tablename))
 
 fetches = cur.fetchmany(CHUNK_SIZE)
 while fetches:
@@ -41,10 +40,18 @@ while fetches:
         if action == 'index':
             select_cur = pgconn.cursor()
             select_cur.execute("""SELECT torrent_id, torrent_name, description, hidden, category, sub_category, status,
-                                  torrent_hash, date, uploader, downloads, filesize, language, seeders, leechers, completed, last_scrape
-                           FROM {torrent_tablename} t INNER JOIN {scrape_tablename} s ON (t.torrent_id = s.torrent_id)
-                           WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, torrent_tablename=torrent_tablename, scrape_tablename=scrape_tablename))
-            torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language, seeders, leechers, completed, last_scrape = select_cur.fetchone()
+                                  torrent_hash, date, uploader, downloads, filesize, language
+                           FROM {torrent_tablename}
+                           WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, torrent_tablename=torrent_tablename))
+            torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language = select_cur.fetchone()
+            select_cur.execute("""SELECT seeders, leechers, completed, last_scrape
+                           FROM {scrape_tablename}
+                           WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, scrape_tablename=scrape_tablename))
+            tmp = select_cur.fetchone()
+            if tmp is None:
+                seeders, leechers, completed, last_scrape = 0, 0, 0, None
+            else:
+                seeders, leechers, completed, last_scrape = tmp
             doc = {
               'id': torrent_id,
               'name': torrent_name.decode('utf-8'),

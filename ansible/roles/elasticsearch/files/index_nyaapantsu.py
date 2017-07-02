@@ -23,14 +23,23 @@ pgconn = psycopg2.connect(dbparams)
 
 torrent_cur = pgconn.cursor()
 torrent_cur.execute("""SELECT torrent_id, torrent_name, description, hidden, category, sub_category, status, 
-                       torrent_hash, date, uploader, downloads, filesize, language, seeders, leechers, completed, last_scrape
-                       FROM {torrent_tablename} t INNER JOIN {scrape_tablename} s ON (t.torrent_id = s.torrent_id)
+                       torrent_hash, date, uploader, downloads, filesize, language
+                       FROM {torrent_tablename}
                        WHERE deleted_at IS NULL""".format(torrent_tablename=torrent_tablename))
+scrape_cur = pgconn.cursor()
 
 torrent_fetches = torrent_cur.fetchmany(CHUNK_SIZE)
 while torrent_fetches:
     actions = list()
-    for torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language, seeders, leechers, completed, last_scrape in torrent_fetches:
+    for torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language in torrent_fetches:
+        scrape_cur.execute("""SELECT seeders, leechers, completed, last_scrape
+                           FROM {scrape_tablename}
+                           WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, scrape_tablename=scrape_tablename))
+        tmp = scrape_cur.fetchone()
+        if tmp is None:
+            seeders, leechers, completed, last_scrape = 0, 0, 0, None
+        else:
+            seeders, leechers, completed, last_scrape = tmp
         doc = {
           'id': torrent_id,
           'name': torrent_name.decode('utf-8'),
