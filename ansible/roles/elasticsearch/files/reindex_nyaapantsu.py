@@ -57,11 +57,11 @@ cur.execute("""/*NO QUERY CACHE*/
                       leechers,
                       completed,
                       last_scrape
-               FROM {torrent_tablename} t
-               INNER JOIN {scrape_tablename} s ON (t.torrent_id = s.torrent_id)
-               INNER JOIN reindex_{torrent_tablename} r ON (s.torrent_id = r.torrent_id)
-               WHERE deleted_at IS NULL""".format(torrent_tablename=torrent_tablename,
-                                                   scrape_tablename=scrape_tablename))
+               FROM reindex_{torrent_tablename} r
+               INNER JOIN {torrent_tablename} t ON (r.torrent_id = t.torrent_id)
+               LEFT JOIN {scrape_tablename} s ON (t.torrent_id = s.torrent_id)
+               """.format(torrent_tablename=torrent_tablename,
+                          scrape_tablename=scrape_tablename))
 
 cur.itersize = CHUNK_SIZE
 fetches = cur.fetchmany(CHUNK_SIZE)
@@ -78,6 +78,16 @@ while fetches:
           '_type': 'torrents',
           '_id': record['torrent_id']
         }
+
+        # It is possible that a torrent has not been scraped yet. In this case
+        # we default to dummy entries in the elasticsearch index.
+        seeders, leechers, completed, last_scrape = 0, 0, 0, None
+        if record['seeders'] != None:
+            seeders, leechers, completed, last_scrape = (record['seeders'],
+                                                         record['leechers'],
+                                                         record['completed'],
+                                                         record['last_scrape'])
+
         if record['action'] == 'index':
             doc = {
               'id': record['torrent_id'],
@@ -93,10 +103,10 @@ while fetches:
               'downloads': record['downloads'],
               'filesize': record['filesize'],
               'language': record['language'],
-              'seeders': record['seeders'],
-              'leechers': record['leechers'],
-              'completed': record['completed'],
-              'last_scrape': record['last_scrape']
+              'seeders': seeders,
+              'leechers': leechers,
+              'completed': completed,
+              'last_scrape': last_scrape
             }
             new_action['_source'] = doc
         to_delete.append(record['reindex_torrents_id'])
