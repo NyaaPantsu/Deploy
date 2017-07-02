@@ -63,8 +63,9 @@ cur.execute("""/*NO QUERY CACHE*/
                WHERE deleted_at IS NULL""".format(torrent_tablename=torrent_tablename,
                                                    scrape_tablename=scrape_tablename))
 
-to_delete = list()
+cur.itersize = CHUNK_SIZE
 fetches = cur.fetchmany(CHUNK_SIZE)
+to_delete = list()
 while fetches:
     actions = list()
     for record in fetches:
@@ -100,15 +101,19 @@ while fetches:
             new_action['_source'] = doc
         to_delete.append(record['reindex_torrents_id'])
         actions.append(new_action)
+    # TODO Check no errors happened
     helpers.bulk(es, actions, chunk_size=CHUNK_SIZE, request_timeout=120)
+    print('Successfuly applied {count} operation'.format(count=cur.rowcount))
     fetches = cur.fetchmany(CHUNK_SIZE)
 
 # FIXME This delete is super slow when reindexing the whole database. We do it
 # at the end to reindex into ES as quick as possible.
+print('Reindexing finished, deleting reindex entries.')
 delete_cur = pgconn.cursor()
 delete_cur.execute("""DELETE FROM reindex_{torrent_tablename}
                       WHERE reindex_torrents_id = ANY(%s)"""
           .format(torrent_tablename=torrent_tablename), (to_delete, ))
 delete_cur.close()
+print('Done deleting reindex entries.')
 pgconn.commit() # Commit the deletes transaction
 pgconn.close()
