@@ -1,8 +1,19 @@
 # coding: utf-8
+# Reindexes whatever is in the reindex torrent tables. There are two possible
+# action, 'index' and 'delete'.
+# To reindex the whole torrent table, run the following query:
+# INSERT INTO reindex_torrents (torrent_id, action)
+# SELECT torrent_id, 'index' FROM torrents WHERE deleted_at IS NULL;
+#
 from elasticsearch import Elasticsearch, helpers
 import psycopg2, pprint, sys, time, os
+import psycopg2.extras
+# Default to UNICODE encoding
+import psycopg2.extensions
+psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
+psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
-CHUNK_SIZE = 10000
+CHUNK_SIZE = 100000
 
 def getEnvOrExit(var):
     environment = ''
@@ -21,57 +32,83 @@ scrape_tablename = getEnvOrExit('PANTSU_SCRAPE_TABLENAME')
 es = Elasticsearch()
 pgconn = psycopg2.connect(dbparams)
 
-cur = pgconn.cursor()
+# Use a unique name to create a server-side cursor
+cur = pgconn.cursor('reindex_{torrent_tablename}_cursor'.format(torrent_tablename=torrent_tablename),
+                    cursor_factory=psycopg2.extras.DictCursor)
 # We MUST use NO QUERY CACHE because the values are insert on triggers and
 # not through pgppool.
-cur.execute('/*NO QUERY CACHE*/ SELECT reindex_torrents_id, torrent_id, action
-                                FROM reindex_{torrent_tablename}'.format(torrent_tablename=torrent_tablename))
+cur.execute("""/*NO QUERY CACHE*/
+               SELECT reindex_torrents_id,
+                      t.torrent_id,
+                      action,
+                      torrent_name,
+                      description,
+                      hidden,
+                      category,
+                      sub_category,
+                      status,
+                      torrent_hash,
+                      date,
+                      uploader,
+                      downloads,
+                      filesize,
+                      language,
+                      seeders,
+                      leechers,
+                      completed,
+                      last_scrape
+               FROM {torrent_tablename} t
+               INNER JOIN {scrape_tablename} s ON (t.torrent_id = s.torrent_id)
+               INNER JOIN reindex_{torrent_tablename} r ON (s.torrent_id = r.torrent_id)
+               WHERE deleted_at IS NULL""".format(torrent_tablename=torrent_tablename,
+                                                   scrape_tablename=scrape_tablename))
 
+to_delete = list()
 fetches = cur.fetchmany(CHUNK_SIZE)
 while fetches:
     actions = list()
-    delete_cur = pgconn.cursor()
-    for reindex_id, torrent_id, action in fetches:
+    for record in fetches:
+        if record == None:
+            print('Record was null')
+            continue
         new_action = {
-          '_op_type': action,
+          '_op_type': record['action'],
           '_index': pantsu_index,
           '_type': 'torrents',
-          '_id': torrent_id
+          '_id': record['torrent_id']
         }
-        if action == 'index':
-            select_cur = pgconn.cursor()
-            select_cur.execute("""SELECT torrent_id, torrent_name, description, hidden, category, sub_category, status,
-                                  torrent_hash, date, uploader, downloads, filesize, language, seeders, leechers, completed, last_scrape
-                           FROM {torrent_tablename} t INNER JOIN {scrape_tablename} s ON (t.torrent_id = s.torrent_id)
-                           WHERE torrent_id = {torrent_id}""".format(torrent_id=torrent_id, torrent_tablename=torrent_tablename, scrape_tablename=scrape_tablename))
-            torrent_id, torrent_name, description, hidden, category, sub_category, status, torrent_hash, date, uploader, downloads, filesize, language, seeders, leechers, completed, last_scrape = select_cur.fetchone()
+        if record['action'] == 'index':
             doc = {
-              'id': torrent_id,
-              'name': torrent_name.decode('utf-8'),
-              'category': str(category),
-              'sub_category': str(sub_category),
-              'status': status,
-              'hidden': hidden,
-              'description': description,
-              'hash': torrent_hash,
-              'date': date,
-              'uploader_id': uploader,
-              'downloads': downloads,
-              'filesize': filesize,
-              'language': language,
-              'seeders': seeders,
-              'leechers': leechers,
-              'completed': completed,
-              'last_scrape': last_scrape
+              'id': record['torrent_id'],
+              'name': record['torrent_name'],
+              'category': str(record['category']),
+              'sub_category': str(record['sub_category']),
+              'status': record['status'],
+              'hidden': record['hidden'],
+              'description': record['description'],
+              'hash': record['torrent_hash'],
+              'date': record['date'],
+              'uploader_id': record['uploader'],
+              'downloads': record['downloads'],
+              'filesize': record['filesize'],
+              'language': record['language'],
+              'seeders': record['seeders'],
+              'leechers': record['leechers'],
+              'completed': record['completed'],
+              'last_scrape': record['last_scrape']
             }
             new_action['_source'] = doc
-            select_cur.close()
-        delete_cur.execute('DELETE FROM reindex_{torrent_tablename} WHERE reindex_torrents_id = {reindex_id}'.format(reindex_id=reindex_id,torrent_tablename=torrent_tablename))
+        to_delete.append(record['reindex_torrents_id'])
         actions.append(new_action)
-    pgconn.commit() # Commit the deletes transaction
-    delete_cur.close()
     helpers.bulk(es, actions, chunk_size=CHUNK_SIZE, request_timeout=120)
-    del(fetches)
     fetches = cur.fetchmany(CHUNK_SIZE)
-cur.close()
+
+# FIXME This delete is super slow when reindexing the whole database. We do it
+# at the end to reindex into ES as quick as possible.
+delete_cur = pgconn.cursor()
+delete_cur.execute("""DELETE FROM reindex_{torrent_tablename}
+                      WHERE reindex_torrents_id = ANY(%s)"""
+          .format(torrent_tablename=torrent_tablename), (to_delete, ))
+delete_cur.close()
+pgconn.commit() # Commit the deletes transaction
 pgconn.close()
