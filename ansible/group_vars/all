@@ -12,6 +12,8 @@ nyaapantsu_elasticsearch_index: nyaapantsu_v1
 nyaapantsu_elasticsearch_old_index: CHANGETHIS
 nyaapantsu_torrent_tablename: torrents
 # nyaapantsu_torrent_tablename: torrents_sukebei
+nyaapantsu_scrape_tablename: scrape
+# nyaapantsu_scrape_tablename: sukebei_scrape
 nyaapantsu_max_open_files: 200000
 nyaapantsu_jvm_heapsize_gb: 8
 nyaapantsu_postgresql_shared_buffers_gb: 8
