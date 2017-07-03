@@ -1,4 +1,5 @@
+TRUNCATE reindex_{{ nyaapantsu_torrent_tablename }};
 INSERT INTO reindex_{{ nyaapantsu_torrent_tablename }} (torrent_id, action)
 SELECT torrent_id, 'index'
 FROM {{ nyaapantsu_torrent_tablename }}
-WHERE deleted_at IS NULL
+WHERE deleted_at IS NULL;

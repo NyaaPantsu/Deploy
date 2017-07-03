@@ -120,8 +120,10 @@ while fetches:
 # at the end to reindex into ES as quick as possible.
 print('Reindexing finished, deleting reindex entries.')
 delete_cur = pgconn.cursor()
-delete_cur.execute("""DELETE FROM reindex_{torrent_tablename}
-                      WHERE reindex_torrents_id = ANY(%s)"""
+delete_cur.execute("""DELETE FROM reindex_{torrent_tablename} r
+                      WHERE EXISTS (SELECT *
+                                    FROM UNNEST(%s) as d(k)
+                                    WHERE d.k = r.reindex_torrents_id)"""
           .format(torrent_tablename=torrent_tablename), (to_delete, ))
 delete_cur.close()
 print('Done deleting reindex entries.')
