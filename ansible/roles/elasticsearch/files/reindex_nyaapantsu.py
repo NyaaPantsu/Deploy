@@ -111,13 +111,13 @@ while fetches:
             new_action['_source'] = doc
         to_delete.append(record['reindex_torrents_id'])
         actions.append(new_action)
-    # TODO Check no errors happened
-    helpers.bulk(es, actions, chunk_size=CHUNK_SIZE, request_timeout=120)
-    print('Successfuly applied {count} operation'.format(count=cur.rowcount))
+    # With raise_on_error=False, no exception is thrown and ES simply ignores
+    # the errors. It doesn't affect the other actions.
+    success, errors = helpers.bulk(es, actions, chunk_size=CHUNK_SIZE, raise_on_error=False, request_timeout=220)
+    total = success + len(errors)
+    print('Successfuly applied {count}/{total} operation'.format(count=success, total=total))
     fetches = cur.fetchmany(CHUNK_SIZE)
 
-# FIXME This delete is super slow when reindexing the whole database. We do it
-# at the end to reindex into ES as quick as possible.
 print('Reindexing finished, deleting reindex entries.')
 delete_cur = pgconn.cursor()
 delete_cur.execute("""DELETE FROM reindex_{torrent_tablename} r
