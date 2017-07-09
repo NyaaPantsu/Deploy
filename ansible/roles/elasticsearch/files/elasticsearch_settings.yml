@@ -23,6 +23,14 @@ settings:
           - underscore_to_space
           - dash_to_underscore
 
+      nyaapantsu_language_analyzer:
+        tokenizer: comma_separator_tokenizer
+
+    tokenizer:
+      comma_separator_tokenizer:
+        type: pattern
+        pattern: ","
+
     filter:
       e_ngram_filter:
         type: edge_ngram
@@ -79,7 +87,7 @@ mappings:
         type: long
       language:
         type: text
-        analyzer: simple
+        analyzer: nyaapantsu_language_analyzer
       seeders:
         type: long
       leechers:
