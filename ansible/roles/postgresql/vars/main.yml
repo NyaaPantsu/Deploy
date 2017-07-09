@@ -8,3 +8,4 @@ memqcache_maxcache_byte: 131072000
 memqcache_cache_block_size_byte: 131072000
 # 20 seconds idle max (application shouldn't even make idle connections)
 child_life_time: 20
+pgpool_port: 9999

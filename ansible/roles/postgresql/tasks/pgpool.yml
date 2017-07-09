@@ -1,0 +1,32 @@
+- name: Install pgpool
+  yum:
+    name: pgpool-II-96
+    state: present
+  become: true
+
+- name: Configure pgpool
+  template:
+    src: pgpool.conf.j2
+    dest: /etc/pgpool-II-96/pgpool.conf
+  become: true
+
+- name: Create oiddir for pgpool
+  file:
+    path: "{{ memqcache_oiddir }}"
+    state: directory
+  become: true 
+
+- name: Fix bug where pid is in wrong pool
+  file:
+    src: /var/run/pgpool-II-96
+    path: /var/run/pgpool
+    state: link
+    force: yes
+  become: true
+
+- name: Start pgpool and enable at boot
+  systemd:
+    enabled: yes
+    name: pgpool-II-96
+    state: started
+  become: true
