@@ -5,11 +5,9 @@
 
 - name: Install postgresql.rpm
   yum:
-    name: "{{ item }}"
+    name: /tmp/postgresql.rpm
     state: present
   become: true
-  with_items:
-    - /tmp/postgresql.rpm
 
 - name: Install postgresql
   yum:
@@ -19,7 +17,6 @@
   with_items:
     - postgresql96-server
     - postgresql96-contrib # Needed for extensions (ie: btree_gin)
-    - pgpool-II-96
 
 - name: Add go to PATH
   lineinfile:
@@ -48,35 +45,12 @@
     state: present
   become: true
 
-- name: Configure pgpool
-  template:
-    src: pgpool.conf.j2
-    dest: /etc/pgpool-II-96/pgpool.conf
-  become: true
-
-- name: Create oiddir for pgpool
-  file:
-    path: "{{ memqcache_oiddir }}"
-    state: directory
-  become: true 
-
-- name: Fix bug where pid is in wrong pool
-  file:
-    src: /var/run/pgpool-II-96
-    path: /var/run/pgpool
-    state: link
-    force: yes
-  become: true
-
-- name: Start postgresql, pgpool and enable at boot
+- name: Start postgresql and enable at boot
   systemd:
     enabled: yes
-    name: "{{ item }}"
+    name: postgresql-9.6
     state: started
   become: true
-  with_items:
-    - postgresql-9.6
-    - pgpool-II-96
 
 - name: Create nyaapantsu database
   postgresql_db:
@@ -122,3 +96,6 @@
     name: postgresql-9.6
     state: reloaded
   become: true
+
+- include: pgpool.yml
+  when: nyaapantsu_use_pgpool == True
