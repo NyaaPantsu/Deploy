@@ -119,13 +119,14 @@ while fetches:
     fetches = cur.fetchmany(CHUNK_SIZE)
 
 print('Reindexing finished, deleting reindex entries.')
-delete_cur = pgconn.cursor()
-delete_cur.execute("""DELETE FROM reindex_{torrent_tablename} r
-                      WHERE EXISTS (SELECT *
-                                    FROM UNNEST(%s) as d(k)
-                                    WHERE d.k = r.reindex_torrents_id)"""
-          .format(torrent_tablename=torrent_tablename), (to_delete, ))
-delete_cur.close()
-print('Done deleting reindex entries.')
-pgconn.commit() # Commit the deletes transaction
+if to_delete:
+    delete_cur = pgconn.cursor()
+    delete_cur.execute("""DELETE FROM reindex_{torrent_tablename} r
+                          WHERE EXISTS (SELECT *
+                                        FROM UNNEST(%s) as d(k)
+                                        WHERE d.k = r.reindex_torrents_id)"""
+              .format(torrent_tablename=torrent_tablename), (to_delete, ))
+    delete_cur.close()
+    print('Done deleting reindex entries.')
+    pgconn.commit() # Commit the deletes transaction
 pgconn.close()
