@@ -39,6 +39,7 @@ cur = pgconn.cursor('reindex_{torrent_tablename}_cursor'.format(torrent_tablenam
 # not through pgppool.
 cur.execute("""/*NO QUERY CACHE*/
                SELECT reindex_torrents_id,
+                      deleted_at,
                       t.torrent_id,
                       action,
                       torrent_name,
@@ -71,6 +72,12 @@ while fetches:
     for record in fetches:
         if record == None:
             print('Record was null')
+            continue
+        # The scraper updates values of deleted torrents apparently
+        # And we don't want them to be indexed, so we remove it here.
+        if record['deleted_at'] != None and record['action'] == 'index':
+            print('Trying to index a deleted torrent. Bad idea. Skipping.')
+            to_delete.append(record['reindex_torrents_id'])
             continue
         new_action = {
           '_op_type': record['action'],
