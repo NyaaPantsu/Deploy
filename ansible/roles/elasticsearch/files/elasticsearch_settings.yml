@@ -48,7 +48,7 @@ settings:
     char_filter:
       dash_to_underscore:
         type: pattern_replace
-        pattern: "([^\\s]+)-(?=[^\\s]+)"
+        pattern: "\\b([^\\s]{1,3})-(?=[^\\s]{1,3})"
         replacement: "$1_"
 
       trim_zeros:
