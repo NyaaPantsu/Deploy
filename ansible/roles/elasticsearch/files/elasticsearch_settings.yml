@@ -15,6 +15,7 @@ settings:
           - resolution
           - dash_to_underscore
           - remove_quotes
+          - resolution_fix
 
       nyaapantsu_index_analyzer:
         tokenizer: standard
@@ -28,6 +29,7 @@ settings:
           - resolution
           - dash_to_underscore
           - remove_quotes
+          - resolution_fix
 
       nyaapantsu_language_analyzer:
         tokenizer: comma_separator_tokenizer
@@ -68,6 +70,16 @@ settings:
         type: mapping
         mappings:
           - "_ => \\u0020"
+
+      # This fixes the following (and similar) scenario:
+      # Searching for episode 19 for a series gives all episode of that series
+      # because it had 1920 x 1080 resolution
+      # The random string below must not be too long for now because the n-gram
+      # accepts only 16 characters
+      resolution_fix:
+        type: pattern_replace
+        pattern: "\\b(1920|1280|1024|1080p?|900p?|720p?|576p?|480p?)\\b"
+        replacement: "c0ca98a77$1"
 
   index:
     number_of_shards: 1
