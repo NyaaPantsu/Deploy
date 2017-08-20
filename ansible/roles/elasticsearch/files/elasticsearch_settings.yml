@@ -11,7 +11,10 @@ settings:
           - lowercase
         char_filter:
           - underscore_to_space
+          - trim_zeros
+          - resolution
           - dash_to_underscore
+          - remove_quotes
 
       nyaapantsu_index_analyzer:
         tokenizer: standard
@@ -21,7 +24,10 @@ settings:
           - e_ngram_filter
         char_filter:
           - underscore_to_space
+          - trim_zeros
+          - resolution
           - dash_to_underscore
+          - remove_quotes
 
       nyaapantsu_language_analyzer:
         tokenizer: comma_separator_tokenizer
@@ -42,6 +48,21 @@ settings:
         type: pattern_replace
         pattern: "([^\\s]+)-(?=[^\\s]+)"
         replacement: "$1_"
+
+      trim_zeros:
+        type: pattern_replace
+        pattern: "(\\s)+0+([123456789])"
+        replacement: "$1 $2"
+
+      resolution:
+        type: pattern_replace
+        pattern: "(\\d+)[xX](\\d+)"
+        replacement: "$1 $2"
+
+      remove_quotes:
+        type: pattern_replace
+        pattern: "['`]"
+        replacement: ""
 
       underscore_to_space:
         type: mapping
