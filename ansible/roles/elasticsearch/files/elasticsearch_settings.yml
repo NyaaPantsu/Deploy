@@ -53,8 +53,8 @@ settings:
 
       trim_zeros:
         type: pattern_replace
-        pattern: "(\\s)+0+([123456789])"
-        replacement: "$1 $2"
+        pattern: "\\b0+([123456789])"
+        replacement: "$1"
 
       resolution:
         type: pattern_replace
