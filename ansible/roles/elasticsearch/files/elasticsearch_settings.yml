@@ -11,7 +11,11 @@ settings:
           - lowercase
         char_filter:
           - underscore_to_space
+          - trim_zeros
+          - resolution
           - dash_to_underscore
+          - remove_quotes
+          - resolution_fix
 
       nyaapantsu_index_analyzer:
         tokenizer: standard
@@ -21,7 +25,11 @@ settings:
           - e_ngram_filter
         char_filter:
           - underscore_to_space
+          - trim_zeros
+          - resolution
           - dash_to_underscore
+          - remove_quotes
+          - resolution_fix
 
       nyaapantsu_language_analyzer:
         tokenizer: comma_separator_tokenizer
@@ -40,13 +48,38 @@ settings:
     char_filter:
       dash_to_underscore:
         type: pattern_replace
-        pattern: "([^\\s]+)-(?=[^\\s]+)"
+        pattern: "\\b([^\\s]{1,3})-(?=[^\\s]{1,3})"
         replacement: "$1_"
+
+      trim_zeros:
+        type: pattern_replace
+        pattern: "\\b0+([123456789])"
+        replacement: "$1"
+
+      resolution:
+        type: pattern_replace
+        pattern: "(\\d+)[xX](\\d+)"
+        replacement: "$1 $2"
+
+      remove_quotes:
+        type: pattern_replace
+        pattern: "['`]"
+        replacement: ""
 
       underscore_to_space:
         type: mapping
         mappings:
           - "_ => \\u0020"
+
+      # This fixes the following (and similar) scenario:
+      # Searching for episode 19 for a series gives all episode of that series
+      # because it had 1920 x 1080 resolution
+      # The random string below must not be too long for now because the n-gram
+      # accepts only 16 characters
+      resolution_fix:
+        type: pattern_replace
+        pattern: "\\b(1920|1280|1024|1080p?|900p?|720p?|576p?|480p?)\\b"
+        replacement: "c0ca98a77$1"
 
   index:
     number_of_shards: 1
