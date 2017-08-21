@@ -78,15 +78,19 @@ settings:
       # because it had 1920 x 1080 resolution
       # The random string below must not be too long for now because the n-gram
       # accepts only 16 characters
+      # Prepending arabic symbol to avoid conflicts
       resolution_fix:
         type: pattern_replace
         pattern: "\\b(1920|1280|1024|1080p?|900p?|720p?|576p?|480p?)\\b"
-        replacement: "c0ca98a77$1"
+        replacement: "تresoluti$1"
 
+      # The random string below must not be too long for now because the n-gram
+      # accepts only 16 characters
+      # Prepending arabic symbol to avoid conflicts
       crc32_fix:
         type: pattern_replace
         pattern: "\\b(\\p{XDigit}{8})\\b"
-        replacement: "thecrc32$1"
+        replacement: "بcrc32$1"
 
   index:
     number_of_shards: 1
