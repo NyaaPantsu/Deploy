@@ -10,6 +10,7 @@ settings:
           - standard
           - lowercase
         char_filter:
+          - crc32_fix # This should be run first
           - underscore_to_space
           - trim_zeros
           - resolution
@@ -24,6 +25,7 @@ settings:
           - lowercase
           - e_ngram_filter
         char_filter:
+          - crc32_fix # This should be run first
           - underscore_to_space
           - trim_zeros
           - resolution
@@ -80,6 +82,11 @@ settings:
         type: pattern_replace
         pattern: "\\b(1920|1280|1024|1080p?|900p?|720p?|576p?|480p?)\\b"
         replacement: "c0ca98a77$1"
+
+      crc32_fix:
+        type: pattern_replace
+        pattern: "\\b(\\p{XDigit}{8})\\b"
+        replacement: "thecrc32$1"
 
   index:
     number_of_shards: 1
